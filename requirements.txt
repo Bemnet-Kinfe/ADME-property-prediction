@@ -1,0 +1,8 @@
+rdkit>=2023.9.5
+lightgbm>=4.0
+scikit-learn>=1.3
+pandas>=2.1
+numpy>=1.26
+scipy>=1.11
+# Data source. Downloads from Harvard Dataverse, so it needs open network access.
+PyTDC>=1.1
