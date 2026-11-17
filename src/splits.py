@@ -6,6 +6,7 @@ recognising a scaffold it has already seen. A scaffold split keeps every molecul
 sharing a core on one side, which is the only situation anyone deploys into.
 """
 
+import warnings
 from collections import defaultdict
 
 import numpy as np
@@ -67,7 +68,8 @@ def random_split(n, seed, frac=(0.8, 0.1, 0.1)):
     )
 
 
-def scaffold_split(smiles_list, seed, frac=(0.8, 0.1, 0.1), pool_acyclic=True):
+def scaffold_split(smiles_list, seed, frac=(0.8, 0.1, 0.1), pool_acyclic=True,
+                   warn_fold_ratio=0.5):
     """Random scaffold split: whole scaffold groups are assigned to one side.
 
     Groups are shuffled with the seed, so repeated seeds give genuinely
@@ -82,19 +84,30 @@ def scaffold_split(smiles_list, seed, frac=(0.8, 0.1, 0.1), pool_acyclic=True):
     rng = np.random.default_rng(seed)
     rng.shuffle(groups)
 
-    n_train_target = int(round(frac[0] * n))
-    n_valid_target = int(round(frac[1] * n))
+    targets = [frac[0] * n, frac[1] * n, frac[2] * n]
+    buckets = [[], [], []]
 
-    train, valid, test = [], [], []
+    # Assign each whole group to whichever fold is furthest below its target.
+    # Filling the folds in order instead starves the later ones: one large group
+    # can push train past its target, leaving too few molecules for both valid
+    # and test, and the test fold comes out empty.
     for group in groups:
-        if len(train) + len(group) <= n_train_target:
-            train.extend(group)
-        elif len(valid) + len(group) <= n_valid_target:
-            valid.extend(group)
-        else:
-            test.extend(group)
+        deficits = [targets[i] - len(buckets[i]) for i in range(3)]
+        buckets[int(np.argmax(deficits))].extend(group)
 
-    return np.asarray(train), np.asarray(valid), np.asarray(test)
+    # A group that is a large share of the set makes balanced folds impossible.
+    # Say so rather than reporting a metric computed on a handful of molecules.
+    for name, bucket, target in zip(("train", "valid", "test"), buckets, targets):
+        if target > 0 and len(bucket) < warn_fold_ratio * target:
+            largest = max(len(g) for g in groups)
+            warnings.warn(
+                f"scaffold split seed {seed}: {name} fold has {len(bucket)} of "
+                f"~{target:.0f} target molecules; largest single scaffold group is "
+                f"{largest} of {n}. Metrics on this fold are unstable.",
+                stacklevel=2,
+            )
+
+    return tuple(np.asarray(b, dtype=int) for b in buckets)
 
 
 def get_split(kind, smiles_list, seed, frac=(0.8, 0.1, 0.1)):
