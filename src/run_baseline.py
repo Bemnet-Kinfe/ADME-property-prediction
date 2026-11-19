@@ -35,7 +35,36 @@ METRIC_KEYS = {
 }
 
 
-def run_task(task_key, df, task_type, seeds, split_kinds, feature_mode):
+def subsample_train(tr, n_train, y_all, task_type, seed):
+    """Take a random subset of the training indices, for the learning curve.
+
+    n_train=None means use everything. A request larger than the fold returns
+    the whole fold.
+
+    Classification subsamples are stratified, so the positive rate stays what
+    the task's prevalence actually is. Without that, a small draw from an
+    imbalanced set can land with almost no positives, and the resulting point
+    on the curve measures the draw rather than the data scale.
+    """
+    if n_train is None or n_train >= len(tr):
+        return tr
+
+    rng = np.random.default_rng(seed)
+    if task_type != "classification":
+        return np.sort(rng.choice(tr, size=n_train, replace=False))
+
+    y = y_all[tr]
+    picked = []
+    for cls in np.unique(y):
+        pool = tr[y == cls]
+        k = max(1, int(round(n_train * len(pool) / len(tr))))
+        k = min(k, len(pool))
+        picked.append(rng.choice(pool, size=k, replace=False))
+    return np.sort(np.concatenate(picked))
+
+
+def run_task(task_key, df, task_type, seeds, split_kinds, feature_mode,
+             n_train=None):
     smiles = df["Drug"].tolist()
     y_all = df["Y"].to_numpy(dtype=float)
 
@@ -72,11 +101,19 @@ def run_task(task_key, df, task_type, seeds, split_kinds, feature_mode):
                 print(f"  !! {split_kind} seed {seed}: empty valid/test fold, skipped")
                 continue
 
+            # Learning curve: shrink the TRAINING set only. Validation and test
+            # stay exactly as the split produced them, so every point on the
+            # curve is scored on the same molecules and the points are
+            # comparable. Subsampling the test set too would move the target
+            # while measuring it.
+            tr = subsample_train(tr, n_train, y_all, task_type, seed)
+
             pred, best_iter = models.fit_predict(
                 task_type, X_all[tr], y_all[tr], X_all[va], y_all[va], X_all[te], seed
             )
             m = ev.metrics_for(task_type, y_all[te], pred)
             m["best_iteration"] = best_iter
+            m["n_train_used"] = len(tr)
             per_seed.append(m)
 
             trivial = models.predict_mean_baseline(task_type, y_all[tr], len(te))
@@ -96,6 +133,9 @@ def run_task(task_key, df, task_type, seeds, split_kinds, feature_mode):
             ("trivial (train mean)", agg_trivial, per_seed_trivial),
         ):
             row = {"task": task_key, "split": split_kind, "model": model_name,
+                   "n_train_requested": n_train if n_train is not None else -1,
+                   "n_train_used": int(np.mean([r.get("n_train_used", 0) for r in raw]))
+                   if raw and "n_train_used" in raw[0] else -1,
                    "n_seeds": len(raw)}
             for k in keys:
                 mean, sd, _ = a[k]
@@ -126,6 +166,11 @@ def main():
                     choices=["random", "scaffold", "tdc"],
                     help="tdc uses TDC's official benchmark split and its own seeds 1-5")
     ap.add_argument("--features", choices=["both", "descriptors", "morgan"], default="both")
+    ap.add_argument("--train-sizes", nargs="+", type=int, default=None,
+                    metavar="N",
+                    help="learning curve: run once per training-set size. "
+                         "Only the training fold shrinks; valid and test are "
+                         "held fixed so the points are comparable.")
     ap.add_argument("--prefer-cache", action="store_true",
                     help="read data/raw/<task>.csv before trying to reach TDC")
     ap.add_argument("--dev", action="store_true",
@@ -146,14 +191,19 @@ def main():
             print(f"{task_key}: {len(df)} molecules (source: {source})")
             jobs.append((task_key, df, data_mod.TASKS[task_key]["task_type"]))
 
+    sizes = args.train_sizes or [None]
     for task_key, df, task_type in jobs:
-        print(f"\n=== {task_key} ({task_type}, n={len(df)}) ===")
-        rows, diag = run_task(
-            task_key, df, task_type, args.seeds, args.splits, args.features
-        )
-        print_table(rows, task_type)
-        all_rows += rows
-        all_diag += diag
+        for n_train in sizes:
+            label = f"{task_key} ({task_type}, n={len(df)}"
+            label += f", train<={n_train})" if n_train else ")"
+            print(f"\n=== {label} ===")
+            rows, diag = run_task(
+                task_key, df, task_type, args.seeds, args.splits, args.features,
+                n_train=n_train,
+            )
+            print_table(rows, task_type)
+            all_rows += rows
+            all_diag += diag
 
     print("\n=== split diagnostics (first seed) ===")
     print(pd.DataFrame(all_diag).to_string(index=False))
