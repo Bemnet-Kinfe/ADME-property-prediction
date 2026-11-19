@@ -2,6 +2,17 @@
   {
     "split": "random",
     "seed": 0,
+    "n_train": 200,
+    "n_valid": 120,
+    "n_test": 120,
+    "n_scaffolds_total": 297,
+    "n_no_scaffold": 345,
+    "n_shared_scaffolds": 12,
+    "frac_test_scaffold_seen_in_train": 0.6833333333333333
+  },
+  {
+    "split": "random",
+    "seed": 0,
     "n_train": 960,
     "n_valid": 120,
     "n_test": 120,
@@ -9,6 +20,17 @@
     "n_no_scaffold": 345,
     "n_shared_scaffolds": 24,
     "frac_test_scaffold_seen_in_train": 0.8
+  },
+  {
+    "split": "random",
+    "seed": 0,
+    "n_train": 200,
+    "n_valid": 120,
+    "n_test": 120,
+    "n_scaffolds_total": 297,
+    "n_no_scaffold": 345,
+    "n_shared_scaffolds": 13,
+    "frac_test_scaffold_seen_in_train": 0.7
   },
   {
     "split": "random",
