@@ -23,6 +23,7 @@ import evaluate as ev
 import features as feat
 import models
 import splits as sp
+import tdc_splits
 
 RESULTS_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results"
@@ -56,9 +57,17 @@ def run_task(task_key, df, task_type, seeds, split_kinds, feature_mode):
 
     rows, diagnostics = [], []
     for split_kind in split_kinds:
+        # TDC's official protocol uses its own seeds, not ours, because the
+        # leaderboard numbers were produced with those exact five.
+        kind_seeds = tdc_splits.TDC_SEEDS if split_kind == "tdc" else seeds
+
         per_seed, per_seed_trivial = [], []
-        for seed in seeds:
-            tr, va, te = sp.get_split(split_kind, smiles, seed)
+        for seed in kind_seeds:
+            if split_kind == "tdc":
+                tdc_name = data_mod.TASKS[task_key]["tdc_name"]
+                tr, va, te = tdc_splits.tdc_official_split(tdc_name, df, seed)
+            else:
+                tr, va, te = sp.get_split(split_kind, smiles, seed)
             if len(te) == 0 or len(va) == 0:
                 print(f"  !! {split_kind} seed {seed}: empty valid/test fold, skipped")
                 continue
@@ -73,7 +82,7 @@ def run_task(task_key, df, task_type, seeds, split_kinds, feature_mode):
             trivial = models.predict_mean_baseline(task_type, y_all[tr], len(te))
             per_seed_trivial.append(ev.metrics_for(task_type, y_all[te], trivial))
 
-            if seed == seeds[0]:
+            if seed == kind_seeds[0]:
                 diagnostics.append(
                     {"split": split_kind, "seed": int(seed),
                      **sp.split_report(smiles, tr, va, te)}
@@ -113,7 +122,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tasks", nargs="+", default=data_mod.DEFAULT_TASKS)
     ap.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 2, 3, 4])
-    ap.add_argument("--splits", nargs="+", default=["random", "scaffold"])
+    ap.add_argument("--splits", nargs="+", default=["random", "scaffold"],
+                    choices=["random", "scaffold", "tdc"],
+                    help="tdc uses TDC's official benchmark split and its own seeds 1-5")
     ap.add_argument("--features", choices=["both", "descriptors", "morgan"], default="both")
     ap.add_argument("--prefer-cache", action="store_true",
                     help="read data/raw/<task>.csv before trying to reach TDC")
