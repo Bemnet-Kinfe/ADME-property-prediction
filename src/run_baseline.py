@@ -111,7 +111,7 @@ def print_table(rows, task_type):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tasks", nargs="+", default=["caco2_wang", "herg"])
+    ap.add_argument("--tasks", nargs="+", default=data_mod.DEFAULT_TASKS)
     ap.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 2, 3, 4])
     ap.add_argument("--splits", nargs="+", default=["random", "scaffold"])
     ap.add_argument("--features", choices=["both", "descriptors", "morgan"], default="both")

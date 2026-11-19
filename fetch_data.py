@@ -18,6 +18,7 @@ OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "raw"
 
 TASKS = [
     ("caco2_wang", "Caco2_Wang", "ADME"),
+    ("cyp3a4", "CYP3A4_Veith", "ADME"),
     ("herg", "hERG", "Tox"),
 ]
 
