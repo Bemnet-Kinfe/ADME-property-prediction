@@ -11,17 +11,6 @@
     "frac_test_scaffold_seen_in_train": 0.8
   },
   {
-    "split": "scaffold",
-    "seed": 0,
-    "n_train": 847,
-    "n_valid": 7,
-    "n_test": 346,
-    "n_scaffolds_total": 297,
-    "n_no_scaffold": 345,
-    "n_shared_scaffolds": 0,
-    "frac_test_scaffold_seen_in_train": 0.0
-  },
-  {
     "split": "random",
     "seed": 0,
     "n_train": 960,
@@ -31,16 +20,5 @@
     "n_no_scaffold": 345,
     "n_shared_scaffolds": 24,
     "frac_test_scaffold_seen_in_train": 0.8
-  },
-  {
-    "split": "scaffold",
-    "seed": 0,
-    "n_train": 847,
-    "n_valid": 7,
-    "n_test": 346,
-    "n_scaffolds_total": 297,
-    "n_no_scaffold": 345,
-    "n_shared_scaffolds": 0,
-    "frac_test_scaffold_seen_in_train": 0.0
   }
 ]
