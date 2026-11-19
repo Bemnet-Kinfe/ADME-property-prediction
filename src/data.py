@@ -14,22 +14,43 @@ import pandas as pd
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 RAW_DIR = os.path.join(DATA_DIR, "raw")
 
+# The two default tasks are chosen to sit at opposite ends of the data-scale
+# axis, because that axis is what the project is actually measuring. Caco-2 is
+# ~900 molecules and CYP3A4 is ~12,300, a 13x span.
+#
+# hERG is kept but off by default. It is a fine task and a better interview
+# story, but at ~650 molecules it samples the same small-data regime as Caco-2,
+# so running both answers the research question twice instead of twice over.
+# Turn it on with --tasks herg once the main result exists, as a check that the
+# finding is not peculiar to one endpoint.
 TASKS = {
     "caco2_wang": {
         "tdc_name": "Caco2_Wang",
         "tdc_group": "ADME",
         "task_type": "regression",
         "label": "Caco-2 permeability (log cm/s)",
-        "note": "Absorption. ~910 molecules. TDC leaderboard metric: MAE.",
+        "note": "Absorption. ~906 molecules. TDC leaderboard metric: MAE.",
+        "default": True,
+    },
+    "cyp3a4": {
+        "tdc_name": "CYP3A4_Veith",
+        "tdc_group": "ADME",
+        "task_type": "classification",
+        "label": "CYP3A4 inhibitor (1 = inhibits)",
+        "note": "Metabolism. ~12,328 molecules, imbalanced. Large enough to carry the learning curve.",
+        "default": True,
     },
     "herg": {
         "tdc_name": "hERG",
         "tdc_group": "Tox",
         "task_type": "classification",
         "label": "hERG blocker (1 = blocks)",
-        "note": "Cardiotoxicity. ~650 molecules, imbalanced. TDC metric: ROC-AUC; we lead with AUPRC.",
+        "note": "Cardiotoxicity. ~650 molecules, imbalanced. Off by default: same data regime as Caco-2.",
+        "default": False,
     },
 }
+
+DEFAULT_TASKS = [k for k, v in TASKS.items() if v.get("default")]
 
 
 def _from_tdc(task_key):
